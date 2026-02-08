@@ -5,7 +5,6 @@ import requests
 from datetime import datetime
 import time
 import os
-import schedule
 
 # Import config
 import config
@@ -61,7 +60,7 @@ def get_weather(coords):
         params = {
             'lat': lat,
             'lon': lng,
-            'appid': config.OPENWEATHER_API_KEY,
+            'appid': OPENWEATHER_API_KEY,
             'units': 'metric'
         }
         response = requests.get(url, params=params)
@@ -242,16 +241,16 @@ def collect_data():
     current_weekday = current_time.weekday()  # Monday=0, Sunday=6
     
     # Only run on weekdays (Monday-Friday)
-  #  if current_weekday >= 5:  # Saturday=5, Sunday=6
-   #     print(f"⏸ Weekend - skipping (today is {current_time.strftime('%A')})")
-    #    return
+    if current_weekday >= 5:  # Saturday=5, Sunday=6
+        print(f"⏸ Weekend - skipping (today is {current_time.strftime('%A')})")
+        return
     
     # Convert time to minutes since midnight
     current_time_minutes = current_hour * 60 + current_minute
     morning_start = 6 * 60  # 6:00 AM
     morning_end = 12 * 60 + 30  # 12:30 PM
     evening_start = 14 * 60  # 2:00 PM
-    evening_end = 23 * 60  # 9:00 PM
+    evening_end = 21 * 60  # 9:00 PM
     
     # Morning window: Home to Office - CHECK ALL ROUTES
     if morning_start <= current_time_minutes <= morning_end:
@@ -281,50 +280,65 @@ def collect_data():
     else:
         print(f"⏸ Outside tracking windows (current time: {current_time.strftime('%H:%M')})")
 
-# Initialize
-print("=" * 70)
-print("COMMUTE TRACKER - MULTI-ROUTE MODE")
-print("=" * 70)
-setup_sheet()
+# Check if we're running in GitHub Actions or locally
+GITHUB_ACTIONS_MODE = os.getenv('GITHUB_ACTIONS') == 'true'
 
-# Validate routes and show info
-try:
-    print(f"\n📍 Locations:")
-    print(f"  Home: {config.HOME_COORDS}")
-    print(f"  Office: {config.OFFICE_COORDS}")
+if GITHUB_ACTIONS_MODE:
+    # GitHub Actions: run once and exit
+    print("=" * 70)
+    print("COMMUTE TRACKER - GITHUB ACTIONS MODE")
+    print("=" * 70)
+    setup_sheet()
+    collect_data()
+else:
+    # Local mode: run continuously with schedule
+    import schedule
+    import schedule
     
-    print(f"\n🛣️  Home → Office Routes:")
-    for route in config.HOME_TO_OFFICE_ROUTES:
-        distance = calculate_distance_from_polyline(route['polyline'])
-        print(f"  • {route['name']}: {distance:.2f} km")
+    print("=" * 70)
+    print("COMMUTE TRACKER - MULTI-ROUTE MODE (LOCAL)")
+    print("=" * 70)
+    setup_sheet()
     
-    print(f"\n🛣️  Office → Home Routes:")
-    for route in config.OFFICE_TO_HOME_ROUTES:
-        distance = calculate_distance_from_polyline(route['polyline'])
-        print(f"  • {route['name']}: {distance:.2f} km")
+    # Validate routes and show info
+    try:
+        print(f"\n📍 Locations:")
+        print(f"  Home: {config.HOME_COORDS}")
+        print(f"  Office: {config.OFFICE_COORDS}")
         
-except Exception as e:
-    print(f"\n✗ Error loading routes: {e}")
-    print("Check your config.py file!")
-    exit(1)
-
-# Schedule the job
-schedule.every(15).minutes.do(collect_data)
-
-print(f"\n⏰ Schedule:")
-print("  Morning: 6:00 AM - 12:30 PM (Home → Office)")
-print("  Evening: 2:00 PM - 9:00 PM (Office → Home)")
-print("  Interval: Every 15 minutes")
-print(f"\n📊 Logging to: Google Sheets")
-print("=" * 70)
-print("\nRunning initial test...\n")
-
-# Run once immediately to test
-collect_data()
-
-print("\n✓ Tracker is now running. Press Ctrl+C to stop.\n")
-
-# Keep running
-while True:
-    schedule.run_pending()
-    time.sleep(60)
+        print(f"\n🛣️  Home → Office Routes:")
+        for route in config.HOME_TO_OFFICE_ROUTES:
+            distance = calculate_distance_from_polyline(route['polyline'])
+            print(f"  • {route['name']}: {distance:.2f} km")
+        
+        print(f"\n🛣️  Office → Home Routes:")
+        for route in config.OFFICE_TO_HOME_ROUTES:
+            distance = calculate_distance_from_polyline(route['polyline'])
+            print(f"  • {route['name']}: {distance:.2f} km")
+            
+    except Exception as e:
+        print(f"\n✗ Error loading routes: {e}")
+        print("Check your config.py file!")
+        exit(1)
+    
+    # Schedule the job
+    schedule.every(15).minutes.do(collect_data)
+    
+    print(f"\n⏰ Schedule:")
+    print("  Weekdays only (Monday-Friday)")
+    print("  Morning: 6:00 AM - 12:30 PM (Home → Office)")
+    print("  Evening: 2:00 PM - 9:00 PM (Office → Home)")
+    print("  Interval: Every 15 minutes")
+    print(f"\n📊 Logging to: Google Sheets")
+    print("=" * 70)
+    print("\nRunning initial test...\n")
+    
+    # Run once immediately to test
+    collect_data()
+    
+    print("\n✓ Tracker is now running. Press Ctrl+C to stop.\n")
+    
+    # Keep running
+    while True:
+        schedule.run_pending()
+        time.sleep(60)
