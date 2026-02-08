@@ -4,11 +4,23 @@ from oauth2client.service_account import ServiceAccountCredentials
 import requests
 from datetime import datetime
 import time
+import os
 import schedule
+
+# Import config
 import config
 
+# Get API keys - prioritize environment variables (for GitHub Actions), fallback to config
+GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY') or getattr(config, 'GOOGLE_MAPS_API_KEY', None)
+OPENWEATHER_API_KEY = os.getenv('OPENWEATHER_API_KEY') or getattr(config, 'OPENWEATHER_API_KEY', None)
+
+if not GOOGLE_MAPS_API_KEY:
+    raise ValueError("GOOGLE_MAPS_API_KEY not found! Set it in config.py or as an environment variable.")
+if not OPENWEATHER_API_KEY:
+    raise ValueError("OPENWEATHER_API_KEY not found! Set it in config.py or as an environment variable.")
+
 # Initialize Google Maps client
-gmaps = googlemaps.Client(key=config.GOOGLE_MAPS_API_KEY)
+gmaps = googlemaps.Client(key=GOOGLE_MAPS_API_KEY)
 
 # Initialize Google Sheets client
 scope = ['https://spreadsheets.google.com/feeds',
@@ -236,10 +248,10 @@ def collect_data():
     
     # Convert time to minutes since midnight
     current_time_minutes = current_hour * 60 + current_minute
-    morning_start = 6 * 60 + 30 # 6:30 AM
+    morning_start = 6 * 60  # 6:00 AM
     morning_end = 12 * 60 + 30  # 12:30 PM
-    evening_start = 15 * 60  # 3:00 PM
-    evening_end = 20 * 60  # 9:00 PM
+    evening_start = 14 * 60  # 2:00 PM
+    evening_end = 21 * 60  # 9:00 PM
     
     # Morning window: Home to Office - CHECK ALL ROUTES
     if morning_start <= current_time_minutes <= morning_end:
