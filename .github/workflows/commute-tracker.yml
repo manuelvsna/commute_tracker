@@ -1,0 +1,38 @@
+name: Commute Tracker
+
+on:
+  schedule:
+    # Run every 15 minutes
+    - cron: '*/15 * * * *'
+  
+  # Allow manual triggering
+  workflow_dispatch:
+
+jobs:
+  track-commute:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install googlemaps gspread oauth2client requests schedule
+    
+    - name: Run commute tracker
+      env:
+        GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+        GOOGLE_SHEETS_CREDS: ${{ secrets.GOOGLE_SHEETS_CREDS }}
+      run: |
+        # Create the service account JSON file from secrets
+        echo "$GOOGLE_SHEETS_CREDS" > traffic-analysis-486814-015f63b18402.json
+        
+        # Run the tracker once (GitHub Actions will run it every 15 min via cron)
+        python commute_tracker.py
