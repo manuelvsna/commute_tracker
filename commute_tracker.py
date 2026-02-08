@@ -242,16 +242,16 @@ def collect_data():
     current_weekday = current_time.weekday()  # Monday=0, Sunday=6
     
     # Only run on weekdays (Monday-Friday)
-    if current_weekday >= 5:  # Saturday=5, Sunday=6
-        print(f"⏸ Weekend - skipping (today is {current_time.strftime('%A')})")
-        return
+  #  if current_weekday >= 5:  # Saturday=5, Sunday=6
+   #     print(f"⏸ Weekend - skipping (today is {current_time.strftime('%A')})")
+    #    return
     
     # Convert time to minutes since midnight
     current_time_minutes = current_hour * 60 + current_minute
     morning_start = 6 * 60  # 6:00 AM
     morning_end = 12 * 60 + 30  # 12:30 PM
     evening_start = 14 * 60  # 2:00 PM
-    evening_end = 21 * 60  # 9:00 PM
+    evening_end = 23 * 60  # 9:00 PM
     
     # Morning window: Home to Office - CHECK ALL ROUTES
     if morning_start <= current_time_minutes <= morning_end:
