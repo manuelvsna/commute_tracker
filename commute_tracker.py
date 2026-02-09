@@ -5,6 +5,7 @@ import requests
 from datetime import datetime
 import time
 import os
+import schedule
 
 # Import config
 import config
@@ -60,7 +61,7 @@ def get_weather(coords):
         params = {
             'lat': lat,
             'lon': lng,
-            'appid': OPENWEATHER_API_KEY,
+            'appid': config.OPENWEATHER_API_KEY,
             'units': 'metric'
         }
         response = requests.get(url, params=params)
@@ -156,11 +157,11 @@ def get_traffic_for_route(origin_coords, dest_coords, polyline_str, route_name, 
         # Decode the polyline to get route points
         route_points = decode_polyline(polyline_str)
         
-        # Extract waypoints from the polyline (sample points along the route)
-        # We'll take points at roughly equal intervals to guide Google along our route
-        num_waypoints = min(8, len(route_points) // 10)  # Max 8 waypoints (API limit is 25, but we'll be conservative)
+        # Extract fewer waypoints (3-5) for better traffic data
+        # Google's API works better with fewer, well-placed waypoints
+        num_waypoints = min(5, max(3, len(route_points) // 20))
         
-        if num_waypoints > 0:
+        if num_waypoints > 0 and len(route_points) > num_waypoints + 1:
             step = len(route_points) // (num_waypoints + 1)
             waypoints = []
             for i in range(1, num_waypoints + 1):
@@ -190,14 +191,39 @@ def get_traffic_for_route(origin_coords, dest_coords, polyline_str, route_name, 
         # Sum up all legs (since we have waypoints, there are multiple legs)
         total_duration_normal = 0
         total_duration_traffic = 0
+        has_traffic_data = False
         
         for leg in route['legs']:
             total_duration_normal += leg['duration']['value']
-            total_duration_traffic += leg.get('duration_in_traffic', {}).get('value', leg['duration']['value'])
+            
+            # Check if traffic data is actually available
+            if 'duration_in_traffic' in leg and leg['duration_in_traffic']['value'] > 0:
+                total_duration_traffic += leg['duration_in_traffic']['value']
+                has_traffic_data = True
+            else:
+                # No traffic data for this leg, use normal duration
+                total_duration_traffic += leg['duration']['value']
         
         # Convert to minutes
         duration_normal = total_duration_normal / 60
         duration_traffic = total_duration_traffic / 60
+        
+        # If we got no traffic data at all, try without waypoints
+        if not has_traffic_data and waypoints:
+            print(f"  ⚠ No traffic data with waypoints, retrying without...")
+            directions_simple = gmaps.directions(
+                origin_coords,
+                dest_coords,
+                mode="driving",
+                departure_time=now,
+                traffic_model="best_guess"
+            )
+            
+            if directions_simple:
+                leg_simple = directions_simple[0]['legs'][0]
+                if 'duration_in_traffic' in leg_simple:
+                    duration_traffic = leg_simple['duration_in_traffic']['value'] / 60
+                    has_traffic_data = True
         
         # Use our precise polyline distance
         distance = calculate_distance_from_polyline(polyline_str)
@@ -226,7 +252,8 @@ def get_traffic_for_route(origin_coords, dest_coords, polyline_str, route_name, 
             polyline_str
         ])
         
-        print(f"✓ {time_only} | {direction} | {route_name} | {duration_traffic:.1f} min ({distance:.1f} km) | {weather_condition} | {rain}mm/h")
+        traffic_indicator = "🚦" if has_traffic_data else "⚠️ (no traffic)"
+        print(f"✓ {time_only} | {direction} | {route_name} | {duration_traffic:.1f} min ({distance:.1f} km) {traffic_indicator}")
         
     except Exception as e:
         print(f"✗ Error ({route_name}): {e}")
@@ -280,65 +307,50 @@ def collect_data():
     else:
         print(f"⏸ Outside tracking windows (current time: {current_time.strftime('%H:%M')})")
 
-# Check if we're running in GitHub Actions or locally
-GITHUB_ACTIONS_MODE = os.getenv('GITHUB_ACTIONS') == 'true'
+# Initialize
+print("=" * 70)
+print("COMMUTE TRACKER - MULTI-ROUTE MODE")
+print("=" * 70)
+setup_sheet()
 
-if GITHUB_ACTIONS_MODE:
-    # GitHub Actions: run once and exit
-    print("=" * 70)
-    print("COMMUTE TRACKER - GITHUB ACTIONS MODE")
-    print("=" * 70)
-    setup_sheet()
-    collect_data()
-else:
-    # Local mode: run continuously with schedule
-    import schedule
-    import schedule
+# Validate routes and show info
+try:
+    print(f"\n📍 Locations:")
+    print(f"  Home: {config.HOME_COORDS}")
+    print(f"  Office: {config.OFFICE_COORDS}")
     
-    print("=" * 70)
-    print("COMMUTE TRACKER - MULTI-ROUTE MODE (LOCAL)")
-    print("=" * 70)
-    setup_sheet()
+    print(f"\n🛣️  Home → Office Routes:")
+    for route in config.HOME_TO_OFFICE_ROUTES:
+        distance = calculate_distance_from_polyline(route['polyline'])
+        print(f"  • {route['name']}: {distance:.2f} km")
     
-    # Validate routes and show info
-    try:
-        print(f"\n📍 Locations:")
-        print(f"  Home: {config.HOME_COORDS}")
-        print(f"  Office: {config.OFFICE_COORDS}")
+    print(f"\n🛣️  Office → Home Routes:")
+    for route in config.OFFICE_TO_HOME_ROUTES:
+        distance = calculate_distance_from_polyline(route['polyline'])
+        print(f"  • {route['name']}: {distance:.2f} km")
         
-        print(f"\n🛣️  Home → Office Routes:")
-        for route in config.HOME_TO_OFFICE_ROUTES:
-            distance = calculate_distance_from_polyline(route['polyline'])
-            print(f"  • {route['name']}: {distance:.2f} km")
-        
-        print(f"\n🛣️  Office → Home Routes:")
-        for route in config.OFFICE_TO_HOME_ROUTES:
-            distance = calculate_distance_from_polyline(route['polyline'])
-            print(f"  • {route['name']}: {distance:.2f} km")
-            
-    except Exception as e:
-        print(f"\n✗ Error loading routes: {e}")
-        print("Check your config.py file!")
-        exit(1)
-    
-    # Schedule the job
-    schedule.every(15).minutes.do(collect_data)
-    
-    print(f"\n⏰ Schedule:")
-    print("  Weekdays only (Monday-Friday)")
-    print("  Morning: 6:00 AM - 12:30 PM (Home → Office)")
-    print("  Evening: 2:00 PM - 9:00 PM (Office → Home)")
-    print("  Interval: Every 15 minutes")
-    print(f"\n📊 Logging to: Google Sheets")
-    print("=" * 70)
-    print("\nRunning initial test...\n")
-    
-    # Run once immediately to test
-    collect_data()
-    
-    print("\n✓ Tracker is now running. Press Ctrl+C to stop.\n")
-    
-    # Keep running
-    while True:
-        schedule.run_pending()
-        time.sleep(60)
+except Exception as e:
+    print(f"\n✗ Error loading routes: {e}")
+    print("Check your config.py file!")
+    exit(1)
+
+# Schedule the job
+schedule.every(15).minutes.do(collect_data)
+
+print(f"\n⏰ Schedule:")
+print("  Morning: 6:00 AM - 12:30 PM (Home → Office)")
+print("  Evening: 2:00 PM - 9:00 PM (Office → Home)")
+print("  Interval: Every 15 minutes")
+print(f"\n📊 Logging to: Google Sheets")
+print("=" * 70)
+print("\nRunning initial test...\n")
+
+# Run once immediately to test
+collect_data()
+
+print("\n✓ Tracker is now running. Press Ctrl+C to stop.\n")
+
+# Keep running
+while True:
+    schedule.run_pending()
+    time.sleep(60)
