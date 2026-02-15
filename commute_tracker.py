@@ -237,9 +237,9 @@ def collect_data():
     current_weekday = current_time.weekday()  # Monday=0, Sunday=6
     
     # Only run on weekdays (Monday-Friday)
-    if current_weekday >= 5:  # Saturday=5, Sunday=6
-        print(f"⏸ Weekend - skipping (today is {current_time.strftime('%A')})")
-        return
+    #if current_weekday >= 5:  # Saturday=5, Sunday=6
+     #   print(f"⏸ Weekend - skipping (today is {current_time.strftime('%A')})")
+      #  return
     
     # Convert time to minutes since midnight
     current_time_minutes = current_hour * 60 + current_minute
