@@ -2,10 +2,7 @@ name: Commute Tracker
 
 on:
   schedule:
-    # Run every 15 minutes
     - cron: '*/15 * * * *'
-  
-  # Allow manual triggering for testing
   workflow_dispatch:
 
 jobs:
@@ -37,59 +34,3 @@ jobs:
         OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
       run: |
         python commute_tracker.py
-```
-
-5. **Click "Commit new file"**
-
----
-
-### Step 2: Enable Actions (If Needed)
-
-After committing:
-
-1. **Go to the "Actions" tab**
-2. If you see a message like "Workflows aren't being run on this repository", click **"I understand my workflows, go ahead and enable them"**
-3. You should now see **"Commute Tracker"** listed on the left sidebar
-4. Click on it
-5. Now you'll see the **"Run workflow"** button (dropdown on the right)
-
----
-
-### Step 3: Test It
-
-1. **Click "Run workflow" dropdown**
-2. **Click the green "Run workflow" button**
-3. **Wait ~30 seconds**
-4. **Refresh the page**
-5. You should see a workflow run with a ✅ (success) or ❌ (failure)
-
----
-
-## If You Still Don't See "Run Workflow"
-
-This can happen if:
-
-**Issue 1: `workflow_dispatch` is not in the workflow**
-- Make sure the YAML I provided includes `workflow_dispatch:` under the `on:` section
-- This enables manual triggering
-
-**Issue 2: Actions are disabled**
-- Go to Settings → Actions → General
-- Make sure "Allow all actions and reusable workflows" is selected
-- Click Save
-
-**Issue 3: The workflow file has a syntax error**
-- After committing, go to Actions tab
-- Look for any error messages about the workflow file
-- YAML is **very sensitive to indentation** - make sure you copied it exactly
-
----
-
-## Visual Guide
-
-After creating `.github/workflows/commute-tracker.yml`, your Actions tab should look like:
-```
-Actions
-├── All workflows
-│   └── Commute Tracker ← Click this
-│       └── [Run workflow ▼] ← This button appears here
