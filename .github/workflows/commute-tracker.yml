@@ -1,36 +1,36 @@
-name: Commute Tracker
+# name: Commute Tracker
 
-on:
-  schedule:
-    - cron: '*/15 * * * *'
-  workflow_dispatch:
+# on:
+#   schedule:
+#     - cron: '*/15 * * * *'
+#   workflow_dispatch:
 
-jobs:
-  track-commute:
-    runs-on: ubuntu-latest
+# jobs:
+#   track-commute:
+#     runs-on: ubuntu-latest
     
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+#     steps:
+#     - name: Checkout repository
+#       uses: actions/checkout@v3
     
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+#     - name: Set up Python
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: '3.11'
     
-    - name: Install dependencies
-      run: |
-        pip install googlemaps gspread oauth2client requests schedule
+#     - name: Install dependencies
+#       run: |
+#         pip install googlemaps gspread oauth2client requests schedule
     
-    - name: Create service account file
-      env:
-        GOOGLE_SHEETS_CREDS: ${{ secrets.GOOGLE_SHEETS_CREDS }}
-      run: |
-        echo "$GOOGLE_SHEETS_CREDS" > traffic-analysis-486814-015f63b18402.json
+#     - name: Create service account file
+#       env:
+#         GOOGLE_SHEETS_CREDS: ${{ secrets.GOOGLE_SHEETS_CREDS }}
+#       run: |
+#         echo "$GOOGLE_SHEETS_CREDS" > traffic-analysis-486814-015f63b18402.json
     
-    - name: Run commute tracker
-      env:
-        GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
-        OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
-      run: |
-        python commute_tracker.py
+#     - name: Run commute tracker
+#       env:
+#         GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+#         OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+#       run: |
+#         python commute_tracker.py
